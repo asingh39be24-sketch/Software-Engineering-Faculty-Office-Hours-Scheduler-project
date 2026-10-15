@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Office-Hours Scheduler</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  input, select, button { padding: 8px; margin: 4px 4px 4px 0; font-size: 14px; }
+  button { cursor: pointer; background: #1a5fa4; color: white; border: none; border-radius: 4px; padding: 8px 14px; }
+  .slot { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #eee; }
+  .msg { padding: 8px; border-radius: 4px; margin-top: 8px; }
+  .ok { background: #e1f5ee; }
+  .err { background: #faece7; }
+  small { color: #777; }
+</style>
+</head>
+<body>
+
+<h1>Office-Hours Scheduler — prototype</h1>
+
+<div class="card">
+  <b>Sign up / Login</b><br>
+  <input id="name" placeholder="Name (signup only)">
+  <input id="email" placeholder="Email">
+  <input id="password" placeholder="Password" type="password">
+  <select id="role"><option value="student">Student</option><option value="faculty">Faculty</option><option value="admin">Admin</option></select><br>
+  <button onclick="signup()">Sign up</button>
+  <button onclick="login()">Login</button>
+  <div id="authMsg"></div>
+</div>
+
+<div class="card" id="facultyCard" style="display:none">
+  <b>Publish a slot (faculty only)</b><br>
+  <input id="slotTime" type="datetime-local">
+  <button onclick="publishSlot()">Publish</button>
+  <div id="publishMsg"></div>
+</div>
+
+<div class="card">
+  <b>Open slots</b>
+  <button onclick="loadSlots()">Refresh</button>
+  <div id="slotList"></div>
+</div>
+
+<div class="card" id="analyticsCard" style="display:none">
+  <b>Analytics (admin only)</b>
+  <button onclick="loadAnalytics()">Load</button>
+  <div id="analytics"></div>
+</div>
+
+<script>
+const API = 'http://localhost:4000/api';
+let token = localStorage.getItem('token') || '';
+let role = localStorage.getItem('role') || '';
+
+function updateUI() {
+  document.getElementById('facultyCard').style.display = role === 'faculty' ? 'block' : 'none';
+  document.getElementById('analyticsCard').style.display = role === 'admin' ? 'block' : 'none';
+}
+updateUI();
+
+async function signup() {
+  const body = {
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value,
+    password: document.getElementById('password').value,
+    role: document.getElementById('role').value
+  };
+  const res = await fetch(`${API}/signup`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const data = await res.json();
+  showAuthMsg(res.ok, res.ok ? `Signed up as ${body.role}` : data.error);
+  if (res.ok) { token = data.token; role = body.role; localStorage.setItem('token', token); localStorage.setItem('role', role); updateUI(); }
+}
+
+async function login() {
+  const body = { email: document.getElementById('email').value, password: document.getElementById('password').value };
+  const res = await fetch(`${API}/login`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const data = await res.json();
+  showAuthMsg(res.ok, res.ok ? 'Logged in' : data.error);
+  if (res.ok) {
+    token = data.token;
+    role = JSON.parse(atob(token.split('.')[1])).role;
+    localStorage.setItem('token', token); localStorage.setItem('role', role);
+    updateUI();
+  }
+}
+
+function showAuthMsg(ok, text) {
+  const el = document.getElementById('authMsg');
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.textContent = text;
+}
+
+async function publishSlot() {
+  const slot_time = document.getElementById('slotTime').value;
+  const res = await fetch(`${API}/slots`, { method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify({ slot_time }) });
+  const data = await res.json();
+  const el = document.getElementById('publishMsg');
+  el.className = 'msg ' + (res.ok ? 'ok' : 'err');
+  el.textContent = res.ok ? 'Slot published' : data.error;
+  if (res.ok) loadSlots();
+}
+
+async function loadSlots() {
+  const res = await fetch(`${API}/slots`, { headers: {'Authorization':'Bearer '+token} });
+  const slots = await res.json();
+  const list = document.getElementById('slotList');
+  list.innerHTML = slots.length ? '' : '<small>No open slots</small>';
+  slots.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'slot';
+    div.innerHTML = `<span>${s.slot_time} — with ${s.faculty_name}</span>`;
+    if (role === 'student') {
+      const btn = document.createElement('button');
+      btn.textContent = 'Book';
+      btn.onclick = () => bookSlot(s.id);
+      div.appendChild(btn);
+    }
+    list.appendChild(div);
+  });
+}
+
+async function bookSlot(slotId) {
+  const res = await fetch(`${API}/bookings`, { method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token}, body: JSON.stringify({ slot_id: slotId }) });
+  const data = await res.json();
+  alert(res.ok ? 'Booked! Booking #' + data.id : 'Failed: ' + data.error);
+  loadSlots();
+}
+
+async function loadAnalytics() {
+  const res = await fetch(`${API}/analytics`, { headers: {'Authorization':'Bearer '+token} });
+  const data = await res.json();
+  document.getElementById('analytics').innerHTML = res.ok
+    ? `<p>Total bookings: ${data.totalBookings}<br>No-show rate: ${data.noShowRate}%<br>Slot utilization: ${data.slotUtilization}%</p>`
+    : `<p class="err">${data.error}</p>`;
+}
+
+loadSlots();
+</script>
+</body>
+</html>
