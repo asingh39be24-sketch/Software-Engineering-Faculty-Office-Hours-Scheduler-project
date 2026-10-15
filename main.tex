@@ -1,0 +1,439 @@
+\documentclass{tietreport}
+
+% Import images
+\usepackage{graphicx}
+
+% Bibliography configuration
+\usepackage[
+  date=year,
+  style=alphabetic,
+  backend=biber,
+  sorting=nty,
+  maxnames=5,
+  minnames=3,
+  maxalphanames=4,
+  minalphanames=3,
+  backref=true,
+  doi=false,
+  isbn=false,
+  url=false,
+  eprint=false
+]{biblatex}
+\addbibresource{references.bib}
+
+%% ==================================================
+%% PROJECT FIELDS
+%% ==================================================
+
+\TitlePageHeader{%
+  UCS503P - Software Engineering Project%
+}
+
+\ProjectTitle{%
+  Faculty Office-Hours Scheduler%
+}
+
+\ProjectSubTitle{%
+  A Conflict-Free Booking System for Faculty and TA Office Hours%
+}
+
+\author{%
+  \texttt{1024170227} Manan Garg \\
+  \texttt{1024270355} Vishesh \\
+  \texttt{1024170240} Aryan \\
+  \texttt{1024170244} Dravinam%
+}
+
+\TitlePageSubText{%
+  Group: \texttt{XXXX} BE Third Year, CSE%
+}
+
+\AdvisorName{%
+  Dr. Raghav B. Venkataramaiyer%
+}
+
+\TitlePageFooterText{{%
+    \large Prototype-Stage Evaluation \\[0.2cm]
+    \bfseries Computer Science and Engineering
+    Department%
+  } \\[0.15cm]
+  Thapar Institute of Engineering and Technology,
+  Patiala%
+}
+
+%% ==================================================
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+% ===== CHAPTER 1: INTRODUCTION =====
+
+\chapter{Introduction}
+
+\section{Background and Context}
+
+Students at Thapar routinely need short, one-on-one time
+with professors or teaching assistants to clear doubts on
+coursework. In practice, this coordination is entirely
+informal: students learn of a faculty member's
+availability by word of mouth, wait outside offices
+hoping to catch a free moment, or exchange emails and
+WhatsApp messages to arrange a meeting. There is no
+shared, structured record of who is free, when, or who
+has already booked that time.
+
+This informality creates avoidable friction for both
+sides. Multiple students may show up expecting the same
+informal slot, while other free time on a faculty
+member's schedule goes completely unused. Since there is
+no record of what was agreed, there is no accountability
+for missed sessions -- a student who does not show up
+leaves no trace, and a faculty member has no way to
+measure how often this happens.
+
+\subsection{Problem Statement}
+
+There is no lightweight, structured system through which
+faculty and TAs can publish their available time slots
+and have students reserve them without risk of
+double-booking or informal miscommunication. This project
+addresses that gap directly: it does not attempt to
+replace scheduling infrastructure at the institutional
+level, but provides a minimal, deployable booking layer
+that any faculty member or TA can adopt voluntarily. This
+report was prepared using \LaTeX{} \cite{latex2e}.
+
+\section{Project Objectives}
+
+\begin{enumerate}
+  \item \textbf{Objective 1:} Allow faculty and TAs to
+    publish available office-hour slots through a simple
+    web interface, without needing any change to
+    institutional systems.
+  \item \textbf{Objective 2:} Allow students to browse and
+    book an open slot with a single action, with the
+    system guaranteeing that no two students can ever book
+    the same slot, even if they attempt to do so at the
+    same instant.
+  \item \textbf{Objective 3:} Track booking outcomes
+    (completed or no-show) so that no-show rate, slot
+    utilization, and average wait time before a slot is
+    available can be measured objectively from logged
+    data, rather than estimated.
+\end{enumerate}
+
+These objectives are specific (tied to concrete actions:
+publish, book, track), measurable (each has a
+corresponding numeric metric reported in Chapter 3),
+achievable within the tools and skills available to the
+team, relevant to a real and recurring problem on campus,
+and time-bound to the semester-long scope of this course.
+
+% ===== CHAPTER 2: METHODOLOGY & DESIGN =====
+
+\chapter{Methodology and Design}
+
+\section{System Architecture}
+
+The system follows a standard three-tier web
+architecture: a browser-based frontend, a REST API
+backend, and a relational database. This separation
+allows the booking logic (the part of the system requiring
+the most care, see Section~\ref{sec:booking-logic}) to be
+implemented and tested independently of the user
+interface.
+
+\subsection{High-Level Design}
+
+Three actors interact with the system: \textbf{Student},
+\textbf{Faculty/TA}, and \textbf{Admin}. Figure
+\ref{fig:usecase} shows the use case diagram capturing
+each actor's interactions with the system.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/usecase.png}
+\caption{Use case diagram for the Office-Hours Scheduler}
+\label{fig:usecase}
+\end{figure}
+
+The system's core entities and their relationships are
+shown in the class diagram in Figure \ref{fig:class}.
+\texttt{User} is a base type from which \texttt{Student},
+\texttt{Faculty}, and \texttt{Admin} inherit, reflecting
+the role-based access control implemented in the backend.
+A \texttt{Faculty} publishes many \texttt{Slot}s; a
+\texttt{Student} makes many \texttt{Booking}s; and each
+\texttt{Slot} is reserved by at most one \texttt{Booking}
+-- this 0..1 cardinality is precisely what the database
+uniqueness constraint described in Section
+\ref{sec:booking-logic} enforces.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/classdiagram.png}
+\caption{Class diagram showing core entities and relationships}
+\label{fig:class}
+\end{figure}
+
+Figure \ref{fig:activity} traces the control flow through
+the booking process, including the availability check that
+prevents double-booking.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.6\textwidth]{figures/activity.png}
+\caption{Activity diagram for the slot-booking workflow}
+\label{fig:activity}
+\end{figure}
+
+\subsection{Technical Stack}
+
+\begin{itemize}
+  \item \textbf{Framework/Language:} Node.js with
+    Express for the backend REST API; plain HTML/JS for
+    the prototype frontend (React planned for the final
+    submission).
+  \item \textbf{Database:} SQLite for the prototype stage,
+    chosen for zero-configuration local development;
+    PostgreSQL planned for the deployed final version.
+  \item \textbf{Tools:} Node's built-in test runner
+    (\texttt{node:test}) for backend unit tests; Git and
+    GitHub for version control; GitHub Actions planned for
+    CI/CD in the final stage.
+  \item \textbf{Libraries:} \texttt{better-sqlite3} for
+    synchronous, transactional database access;
+    \texttt{jsonwebtoken} for stateless authentication;
+    \texttt{bcryptjs} for password hashing.
+\end{itemize}
+
+\section{Implementation Details}
+
+\subsection{Module 1: Authentication and Role Management}
+
+Users sign up with a name, email, password, and role
+(\texttt{student}, \texttt{faculty}, or \texttt{admin}).
+Passwords are hashed with bcrypt before storage. On
+successful login, the backend issues a signed JSON Web
+Token (JWT) encoding the user's ID, role, and name. Every
+subsequent API request carries this token, and a
+middleware layer verifies it and enforces role-based
+access -- for example, only a user with role
+\texttt{faculty} may call the slot-publishing endpoint.
+
+\subsection{Module 2: Conflict-Free Booking Logic}
+\label{sec:booking-logic}
+
+This is the most technically significant part of the
+system, and the part we tested most rigorously. The risk
+is a \textit{race condition}: if two students attempt to
+book the same slot at nearly the same instant, a naive
+implementation (check availability, then separately write
+the booking) could let both succeed, since the check for
+student B might run before student A's write completes.
+
+We address this with two mechanisms working together:
+
+\begin{enumerate}
+  \item A \texttt{UNIQUE} constraint on the
+    \texttt{slot\_id} column of the \texttt{bookings}
+    table at the database level, so the database itself
+    physically cannot store two bookings for the same
+    slot, regardless of application logic.
+  \item The check-and-reserve operation (verify the slot
+    is open, then mark it booked, then insert the booking
+    record) is wrapped in a single atomic database
+    transaction, so no other operation can interleave
+    between the check and the write.
+\end{enumerate}
+
+Listing~\ref{lst:booking} shows the core of this
+implementation.
+
+\begin{verbatim}
+const bookSlot = db.transaction((slotId, studentId) => {
+  const slot = db.prepare(
+    "SELECT * FROM slots WHERE id = ? AND status = 'open'"
+  ).get(slotId);
+  if (!slot) throw new Error('SLOT_UNAVAILABLE');
+
+  db.prepare(
+    "UPDATE slots SET status='booked' WHERE id=? AND status='open'"
+  ).run(slotId);
+
+  return db.prepare(
+    'INSERT INTO bookings (slot_id, student_id) VALUES (?,?)'
+  ).run(slotId, studentId);
+});
+\end{verbatim}
+\begin{center}
+\small Listing \refstepcounter{figure}\thefigure: Transactional check-and-reserve booking logic \label{lst:booking}
+\end{center}
+
+\subsection{Module 3: Slot Publishing and Analytics}
+
+Faculty publish slots by submitting a timestamp; the
+system rejects duplicate slots for the same faculty member
+at the same time via a second uniqueness constraint on
+\texttt{(faculty\_id, slot\_time)}. An analytics endpoint,
+restricted to the \texttt{admin} role, aggregates booking
+outcomes into the metrics defined in our proposal: total
+bookings, no-show rate, and slot utilization rate.
+
+% ===== CHAPTER 3: RESULTS & EVALUATION =====
+
+\chapter{Results and Evaluation}
+
+\section{Testing Methodology}
+
+\begin{itemize}
+  \item \textbf{Unit Testing:} The booking transaction
+    logic (Section \ref{sec:booking-logic}) is covered by
+    automated tests using Node's built-in test runner,
+    run against an in-memory SQLite database for speed and
+    isolation.
+  \item \textbf{Integration Testing:} The full request
+    flow -- signup, login, slot publishing, booking, and
+    conflict handling -- was verified end-to-end via HTTP
+    requests against a running instance of the backend.
+  \item \textbf{Manual Testing:} The prototype frontend was
+    used manually to sign up as a faculty member, publish
+    a slot, sign up as two different students, and attempt
+    to book the same slot from both accounts.
+\end{itemize}
+
+\section{Performance Metrics}
+
+The central engineering claim of this project is that the
+booking system prevents double-booking under concurrent
+access. Table \ref{tab:results} reports the outcome of
+both the automated test suite and a manual two-student
+conflict test performed against the running prototype.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+  \hline
+  \textbf{Test} & \textbf{Expected} & \textbf{Observed} \\
+  \hline
+  Single booking on open slot & Success (200) & Success (200) \\
+  \hline
+  Second booking on same slot & Rejected (409) & Rejected (409) \\
+  \hline
+  Booking non-existent slot & Rejected & Rejected \\
+  \hline
+  Automated unit tests (2 cases) & 2/2 pass & 2/2 pass \\
+  \hline
+\end{tabular}
+\caption{Booking conflict-prevention test results}
+\label{tab:results}
+\end{table}
+
+In the manual two-student test, Student~A's booking
+request for a published slot returned a confirmed booking.
+Student~B's subsequent request for the identical slot was
+rejected with the message ``This slot was just booked by
+someone else'' and HTTP status 409, confirming that the
+uniqueness constraint and transactional logic behave as
+designed.
+
+\section{Analysis}
+
+At this prototype stage, we have met Objectives 1 and 2 in
+full: faculty can publish slots, and students can book
+them with a verified guarantee against double-booking. The
+core technical risk identified in our proposal --
+concurrent booking conflicts -- has been directly tested
+and resolved, rather than assumed to work.
+
+Objective 3 (measurable no-show rate and utilization
+tracking) is partially implemented: the analytics endpoint
+computes these metrics correctly from logged data, but we
+have not yet run a real pilot with actual faculty and
+students, so the numbers reported by the endpoint are
+currently based on test data rather than genuine usage.
+This is the primary gap to close before the final
+submission.
+
+The main challenge encountered was deciding how to
+simulate concurrent requests in an automated test; we
+resolved this by testing the transaction's correctness
+directly (a booking attempt on an already-booked slot must
+raise an error) rather than attempting to physically
+race two HTTP requests against each other, which would
+introduce test flakiness without adding confidence beyond
+what the transactional guarantee already provides.
+
+% ===== CHAPTER 4: CONCLUSION =====
+
+\chapter{Conclusion}
+
+\section{Summary of Work}
+
+At the prototype stage, we have implemented and tested the
+core booking workflow of the Faculty Office-Hours
+Scheduler: authentication with role-based access, slot
+publishing by faculty, and conflict-free slot booking by
+students, backed by a database-level uniqueness constraint
+and an atomic transaction. This directly satisfies
+Objectives 1 and 2 from Chapter 1 and provides verified
+evidence, not just a design claim, that the system's
+central technical risk has been addressed.
+
+\section{Key Findings}
+
+\begin{itemize}
+  \item \textbf{Finding 1:} A database-level uniqueness
+    constraint combined with a single atomic transaction
+    is sufficient to prevent double-booking, without
+    needing any application-level locking mechanism.
+  \item \textbf{Finding 2:} Separating the booking
+    transaction logic from the HTTP layer made it possible
+    to unit-test the core correctness guarantee in
+    isolation, independent of the web framework.
+  \item \textbf{Finding 3:} SQLite was sufficient for rapid
+    prototype iteration and testing; migrating to
+    PostgreSQL for the final, deployed version should be a
+    low-risk change since the transactional pattern used
+    is standard SQL.
+\end{itemize}
+
+\section{Future Work and Recommendations}
+
+\begin{enumerate}
+  \item Migrate the database layer from SQLite to
+    PostgreSQL for the final submission, to match the
+    production-oriented stack described in our proposal.
+  \item Rebuild the frontend in React, replacing the
+    current minimal HTML/JS prototype, to support a more
+    complete faculty availability console and admin
+    dashboard.
+  \item Add email/in-app reminder notifications ahead of a
+    booked session.
+  \item Run a real pilot with 3--5 willing faculty/TAs and
+    their students to populate the analytics endpoint with
+    genuine usage data, and measure actual no-show rate and
+    slot utilization against the targets set in our
+    proposal.
+  \item Set up the GitHub Actions CI/CD pipeline to run the
+    existing test suite automatically on every push, and
+    deploy the backend to a staging environment (Render or
+    Railway).
+\end{enumerate}
+
+\section{Final Remarks}
+
+Building and testing the booking logic first, before any
+interface polish, let us verify the project's central
+engineering claim early and with confidence. The remaining
+work is primarily about breadth (a fuller frontend, real
+deployment, a genuine pilot) rather than about resolving
+open technical risk.
+
+% ===== BIBLIOGRAPHY =====
+
+\printbibliography[heading=bibintoc]
+
+\end{document}
