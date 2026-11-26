@@ -1,0 +1,32 @@
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/500.css';
+@import '@fontsource/newsreader/400-italic.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body { @apply bg-ink-50 font-sans text-base text-ink-900; font-feature-settings: 'tnum' 0; }
+  ::selection { @apply bg-pine-100 text-pine-900; }
+  :focus-visible { @apply outline-none ring-2 ring-pine-500 ring-offset-2 ring-offset-white; }
+  [data-tabular] { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .card { @apply rounded-md border border-ink-150 bg-white shadow-xs; }
+  .label-caps { @apply text-2xs font-medium uppercase tracking-[0.08em] text-ink-500; }
+  .link { @apply font-medium text-pine-700 underline-offset-2 hover:underline; }
+  .skeleton { @apply animate-pulse rounded bg-ink-100; }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: theme('colors.ink.200') transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
